@@ -1,0 +1,87 @@
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+.header-controls-area {
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: rgba(8, 8, 8, 0.98);
+  backdrop-filter: blur(25px);
+  border-bottom: 1px solid rgba(30, 144, 255, 0.15);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.header-controls-area.collapsed {
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: all 0.2s ease;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  background: #000;
+}
+
+.scrollable-content.fullscreen {
+  margin-top: 0;
+}
+
+.main-video-area {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.main-video-area.with-highlight {
+  flex: 0 0 70%;
+}
+
+.highlight-side-area {
+  flex: 0 0 30%;
+  min-width: 320px;
+  max-width: none;
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid rgba(30, 144, 255, 0.2);
+  background: rgba(0, 0, 0, 0.98);
+  backdrop-filter: blur(20px);
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.8);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.stat span {
+  color: #1e90ff;
+  font-weight: 600;
+}

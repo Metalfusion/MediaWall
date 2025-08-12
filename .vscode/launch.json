@@ -1,0 +1,82 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Python: Run Hypercorn Video Server",
+            "program": "${workspaceFolder}/hypercorn_video_server.py",
+            "args": ["videos", "dist"],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            },
+            "justMyCode": false
+        },
+        {
+            "type": "node-terminal",
+            "request": "launch",
+            "name": "Frontend: npm run dev",
+            "command": "npm run dev",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "node-terminal",
+            "request": "launch",
+            "name": "Frontend: npm run build",
+            "command": "npm run build",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome against localhost:3000",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}/src"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome against Hypercorn (localhost:8000)",
+            "url": "http://localhost:8000",
+            "webRoot": "${workspaceFolder}/dist",
+            "runtimeArgs": [
+                "--enable-features=NetworkService",
+                "--enable-experimental-web-platform-features"
+            ]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Development: Full Stack + Browser",
+            "configurations": [
+                "Python: Run Hypercorn Video Server",
+                "Frontend: npm run dev",
+                "Launch Chrome against localhost:3000"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Main",
+                "order": 1
+            }
+        },
+        {
+            "name": "Production: Single Server + Browser",
+            "configurations": [
+                "Frontend: npm run build",
+                "Python: Run Hypercorn Video Server",
+                "Launch Chrome against Hypercorn (localhost:8000)"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Main",
+                "order": 2
+            }
+        }
+    ]
+}

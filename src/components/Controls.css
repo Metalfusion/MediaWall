@@ -1,0 +1,135 @@
+.controls {
+  background: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(30, 144, 255, 0.08);
+  border-bottom: none;
+  backdrop-filter: blur(10px);
+  margin: 0 12px 12px 12px;
+  border-radius: 4px;
+}
+
+.controls-content {
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.controls button {
+  background: rgba(30, 144, 255, 0.12);
+  border: 1px solid rgba(30, 144, 255, 0.3);
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: white;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 400;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(20px);
+}
+
+.controls button:hover {
+  background: rgba(30, 144, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(30, 144, 255, 0.3);
+  border-color: rgba(30, 144, 255, 0.5);
+}
+
+.controls button:active {
+  transform: translateY(0);
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.controls input[type="range"] {
+  width: 80px;
+  height: 3px;
+  margin: 0 4px;
+  background: rgba(30, 144, 255, 0.3);
+  border-radius: 0;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #1e90ff;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.controls input[type="checkbox"] {
+  margin: 0;
+  accent-color: #1e90ff;
+}
+
+.controls span {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 500;
+  color: #1e90ff;
+  font-size: 10px;
+}
+
+.music-player {
+  background: rgba(30, 144, 255, 0.15);
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(30, 144, 255, 0.3);
+}
+
+.music-player button {
+  background: rgba(30, 144, 255, 0.12);
+  border-color: rgba(30, 144, 255, 0.3);
+}
+
+.music-player button:hover {
+  background: rgba(30, 144, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(30, 144, 255, 0.3);
+  border-color: rgba(30, 144, 255, 0.5);
+}
+
+.music-status {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+}
+
+@media (max-width: 768px) {
+  .controls-content {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .control-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .controls label {
+    justify-content: space-between;
+  }
+}
