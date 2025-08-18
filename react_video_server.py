@@ -33,7 +33,7 @@ try:
     from aiohttp import web
     from aiohttp.web import Request, Response, FileResponse
 except ImportError:
-    print("❌ Error: aiohttp not installed. Install with:")
+    print("[ERROR] Error: aiohttp not installed. Install with:")
     print("   pip install aiohttp")
     sys.exit(1)
 
@@ -76,7 +76,7 @@ class IntegratedVideoServer:
             print(f"📊 Database base path: {self.database_base_path}")
             print(f"📊 Loaded {len(self.database_data)} media entries from database")
         else:
-            print("📁 Folder scan mode enabled")
+            print("[FOLDER] Folder scan mode enabled")
 
         # Check if folders exist (only in folder mode)
         if not self.database_mode:
@@ -532,43 +532,6 @@ class IntegratedVideoServer:
         
         print(f"✅ Found {len(videos)} videos with enhanced metadata")
         return self.video_cache
-
-    def read_image_metadata(self, image_path: Path) -> Dict[str, Any]:
-        """Read image metadata from associated JSON file if it exists"""
-        metadata_path = image_path.with_suffix(image_path.suffix + '_metadata.json')
-        if metadata_path.exists():
-            try:
-                with open(metadata_path, 'r', encoding='utf-8') as f:
-                    metadata = json.load(f)
-                title = None
-                essential: Dict[str, Any] = {}
-                if isinstance(metadata, dict):
-                    title = metadata.get('title') or metadata.get('image_title')
-                    # Carry over some common fields
-                    for field in ['id', 'source', 'pageUrl', 'referer', 'extractedDate']:
-                        if field in metadata:
-                            essential[field] = metadata[field]
-                    # Dimensions if present
-                    if 'dimensions' in metadata:
-                        essential['dimensions'] = metadata['dimensions']
-                    # Tags
-                    tags: List[str] = []
-                    meta_tags = metadata.get('tags') or metadata.get('image_tags')
-                    if isinstance(meta_tags, list):
-                        tags = [str(t) for t in meta_tags]
-                    elif isinstance(meta_tags, str):
-                        tags = [meta_tags]
-                    if tags:
-                        essential['tags'] = tags
-                result: Dict[str, Any] = {}
-                if title:
-                    result['title'] = title
-                if essential:
-                    result['metadata'] = essential
-                return result
-            except (json.JSONDecodeError, IOError) as e:
-                print(f"⚠️ Failed to read image metadata for {image_path.name}: {e}")
-        return {}
 
     # ---- Persistent image index helpers ----
     # Image index now delegated to media_metadata.ImageMetadataIndex

@@ -26,6 +26,7 @@ The media is loaded and served with metadata from local folders using a simple P
 - **High-performance rendering**: Virtualized grid for smooth performance with large video/image collections
 - **Smart loading**: Only loads visible videos and images to optimize memory usage
 - **Metadata support**: Automatic extraction of video/image dimensions and properties
+- **Smart tag merging**: Preserves existing tags from metadata while adding auto-generated tags
 - **RESTful API**: Clean API for video/image management and control
 
 ## 🚀 Getting Started
@@ -139,6 +140,7 @@ When using database mode, create a JSON file containing an array of media object
 - `path`: Path to the file relative to the database JSON location (or absolute path)
 - `mediaType`: Either "video" or "image" 
 - `title`: Display title for the media
+- `tags`: Array of custom tags (optional - will be merged with auto-generated tags)
 - `dimensions`: Object with `width` and `height` properties
 - Additional metadata fields (score, category, URLs, etc.)
 
@@ -150,6 +152,7 @@ When using database mode, create a JSON file containing an array of media object
     "path": "videos/my_video.mp4",
     "mediaType": "video",
     "title": "My Amazing Video",
+    "tags": ["entertainment", "comedy", "viral"],
     "dimensions": {
       "width": "1920",
       "height": "1080"
@@ -163,6 +166,7 @@ When using database mode, create a JSON file containing an array of media object
     "path": "images/my_image.jpg",
     "mediaType": "image",
     "title": "Beautiful Landscape",
+    "tags": ["nature", "scenic", "mountains"],
     "dimensions": {
       "width": "2048",
       "height": "1536"
@@ -172,8 +176,6 @@ When using database mode, create a JSON file containing an array of media object
   }
 ]
 ```
-
-See `example_media_database.json` for a complete example based on the existing metadata format.
 
 **Converting existing metadata files:**
 If you already have individual metadata JSON files, you can convert them to database format using the included converter:
@@ -202,6 +204,8 @@ This script will:
 - Extract metadata (dimensions, duration, etc.)
 - Create the required JSON metadata files next to each video/image file
 - Generate the index files needed by the application
+
+**Adding custom tags**: You can manually edit the generated metadata JSON files to add custom tags using the `tags` field (or `video_tags`/`image_tags`). These will be automatically merged with system-generated tags.
 
 **Note**: The application requires metadata JSON files for all videos and images to function properly.
 
@@ -334,6 +338,7 @@ Each media object should include:
 - `path`: Relative or absolute path to file
 - `mediaType`: "video" or "image"
 - `title`: Display title
+- `tags`: Array of custom tags (optional, merged with auto-generated tags)
 - `dimensions`: Object with width/height
 - Additional metadata fields as needed
 

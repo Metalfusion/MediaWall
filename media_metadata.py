@@ -442,6 +442,19 @@ def gen_video_tags(file_path: Path, dims: Dict[str, int], meta: Dict[str, Any], 
     tags: List[str] = ["video"]
     raw_m = meta.get('metadata') if isinstance(meta, dict) else None
     m = raw_m if isinstance(raw_m, dict) else {}
+    
+    # First, collect any existing tags from metadata
+    existing_tags = []
+    meta_tags = _dget(m, 'tags') or _dget(m, 'video_tags') or _dget(meta, 'tags') or _dget(meta, 'video_tags')
+    if isinstance(meta_tags, list):
+        existing_tags = [str(t) for t in meta_tags]
+    elif isinstance(meta_tags, str):
+        existing_tags = [meta_tags]
+    
+    # Add existing tags to our collection
+    tags.extend(existing_tags)
+    
+    # Generate auto tags based on file properties
     w, h = dims.get('width'), dims.get('height')
     o = orientation_tag(w, h)
     if o:
@@ -663,6 +676,19 @@ def gen_image_tags(file_path: Path, dims: Dict[str, int], meta: Dict[str, Any]) 
     tags: List[str] = ["image"]
     raw_m = meta.get('metadata') if isinstance(meta, dict) else None
     m = raw_m if isinstance(raw_m, dict) else {}
+    
+    # First, collect any existing tags from metadata
+    existing_tags = []
+    meta_tags = _dget(m, 'tags') or _dget(m, 'image_tags') or _dget(meta, 'tags') or _dget(meta, 'image_tags')
+    if isinstance(meta_tags, list):
+        existing_tags = [str(t) for t in meta_tags]
+    elif isinstance(meta_tags, str):
+        existing_tags = [meta_tags]
+    
+    # Add existing tags to our collection
+    tags.extend(existing_tags)
+    
+    # Generate auto tags based on file properties
     w, h = dims.get('width'), dims.get('height')
     o = orientation_tag(w, h)
     if o:
