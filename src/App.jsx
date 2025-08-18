@@ -510,6 +510,23 @@ const App = () => {
     return filteredImages.length + filteredVideos.length;
   }, [settings.displayMode, filteredImages.length, filteredVideos.length]);
 
+  // Compute tag data with counts and sorted list
+  const tagData = useMemo(() => {
+    const tagCounts = {};
+    [...videos, ...images].forEach(item => {
+      (item.tags || []).forEach(tag => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    });
+    
+    const sortedTags = Object.keys(tagCounts).sort((a, b) => {
+      const countDiff = tagCounts[b] - tagCounts[a];
+      return countDiff !== 0 ? countDiff : a.localeCompare(b);
+    });
+    
+    return { tagCounts, sortedTags };
+  }, [videos, images]);
+
   return (
     <div className="app">
       <FloatingToggle
@@ -541,10 +558,8 @@ const App = () => {
             if (!enabled) clearHighlight();
           }}
           // Media mode and tags
-          availableTags={Array.from(new Set([
-            ...videos.flatMap(v => (v.tags || [])),
-            ...images.flatMap(i => (i.tags || []))
-          ])).sort()}
+          availableTags={tagData.sortedTags}
+          tagCounts={tagData.tagCounts}
           musicTracks={musicTracks}
           currentTrackIndex={currentTrackIndex}
           musicEnabled={musicEnabled}

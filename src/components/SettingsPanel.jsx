@@ -12,6 +12,7 @@ const SettingsPanel = ({
   highlightModeEnabled,
   onToggleHighlightMode,
   availableTags = [],
+  tagCounts = {},
   musicTracks = [],
   currentTrackIndex = 0,
   musicEnabled = false,
@@ -141,13 +142,17 @@ const SettingsPanel = ({
               <label>Search tags</label>
               <input className="text" placeholder="Type to filter tags…" value={tagQuery} onChange={(e)=>setTagQuery(e.target.value)} />
             </div>
-            <div className="field">
-              <div className="chips" role="group" aria-label="Tag filters">
+            <div className="field full">
+              <div className="chips-container" role="group" aria-label="Tag filters">
                 {filteredTags.length === 0 && <div className="empty">No tags</div>}
                 {filteredTags.map(tag => {
                   const active = (settings.selectedTags || []).includes(tag);
+                  const count = tagCounts[tag] || 0;
                   return (
-                    <button key={tag} className={`chip ${active ? 'active' : ''}`} onClick={() => toggleTag(tag)}>{tag}</button>
+                    <button key={tag} className={`chip ${active ? 'active' : ''}`} onClick={() => toggleTag(tag)}>
+                      <span className="chip-tag">{tag}</span>
+                      <span className="chip-count">({count})</span>
+                    </button>
                   );
                 })}
               </div>
