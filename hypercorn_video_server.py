@@ -24,12 +24,12 @@ except ImportError:
 # Import our video scanning logic
 from react_video_server import IntegratedVideoServer
 
-def create_video_api_app(videos_folder: Path, react_build_folder: Optional[Path] = None) -> Quart:
+def create_video_api_app(react_build_folder: Optional[Path] = None, database_file: Optional[Path] = None) -> Quart:
     """Create Quart app that only handles video APIs and streaming"""
     app = Quart(__name__)
     
     # Create server instance for video scanning (captured in closures)
-    server = IntegratedVideoServer(videos_folder)
+    server = IntegratedVideoServer(database_file=database_file)
     
     # Store whether we have static files (not strictly needed here)
     has_static_files = react_build_folder and react_build_folder.exists()
@@ -93,9 +93,9 @@ def create_video_api_app(videos_folder: Path, react_build_folder: Optional[Path]
     @app.route('/videos/<filename>')
     async def serve_video(filename: str):
         """Serve video files with optimized streaming"""
-        file_path = server.videos_folder / filename
+        file_path = server.get_file_path_for_serving(filename, 'video')
         
-        if not file_path.exists() or not file_path.is_file():
+        if not file_path or not file_path.exists() or not file_path.is_file():
             return "Video not found", 404
         
         # Get file stats
@@ -178,12 +178,8 @@ def create_video_api_app(videos_folder: Path, react_build_folder: Optional[Path]
     @app.route('/music/<filename>')
     async def serve_music(filename: str):
         """Serve music files"""
-        if not server.music_folder:
-            return "Music folder not found", 404
-            
-        file_path = server.music_folder / filename
-        
-        if not file_path.exists():
+        file_path = server.get_file_path_for_serving(filename, 'music')
+        if not file_path or not file_path.exists():
             return "Music file not found", 404
         
         try:
@@ -206,10 +202,8 @@ def create_video_api_app(videos_folder: Path, react_build_folder: Optional[Path]
     @app.route('/images/<filename>')
     async def serve_image(filename: str):
         """Serve image files"""
-        if not hasattr(server, 'images_folder') or not server.images_folder:
-            return "Images folder not found", 404
-        file_path = server.images_folder / filename
-        if not file_path.exists():
+        file_path = server.get_file_path_for_serving(filename, 'image')
+        if not file_path or not file_path.exists():
             return "Image not found", 404
         try:
             response = await send_file(file_path, conditional=True)
@@ -425,20 +419,49 @@ def create_hypercorn_config(
 
 async def main():
     """Main function to run Hypercorn server"""
-    if len(sys.argv) < 2:
-        print("Usage: python hypercorn_video_server.py <videos_folder> [react_build_folder]")
-        print("Example: python hypercorn_video_server.py ./videos ./dist")
-        sys.exit(1)
+    if '--help' in sys.argv or '-h' in sys.argv:
+        print("Usage: python hypercorn_video_server.py [react_build_folder] [--database <database_file>]")
+        print("Example: python hypercorn_video_server.py")
+        print("Example: python hypercorn_video_server.py ./dist")
+        print("Example (database mode): python hypercorn_video_server.py --database ./media_database.json")
+        print("Example (with build): python hypercorn_video_server.py ./dist --database ./media_database.json")
+        print("")
+        print("Arguments:")
+        print("  react_build_folder  Path to React build folder (optional)")
+        print("  --database FILE     Path to media database JSON file (optional)")
+        print("")
+        print("Default folders:")
+        print("  videos/   - Video files")
+        print("  images/   - Image files")
+        print("  music/    - Music files")
+        print("")
+        print("Database mode:")
+        print("  When --database is specified, media metadata is loaded from a single JSON file")
+        print("  instead of scanning folder structure for individual metadata files.")
+        print("  The database file should contain an array of media objects with metadata.")
+        sys.exit(0)
     
-    videos_folder = Path(sys.argv[1])
-    react_build_folder = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    react_build_folder = None
+    database_file = None
     
-    if not videos_folder.exists():
-        print(f"❌ Videos folder does not exist: {videos_folder}")
+    # Parse arguments
+    i = 1
+    while i < len(sys.argv):
+        if sys.argv[i] == '--database' and i + 1 < len(sys.argv):
+            database_file = Path(sys.argv[i + 1])
+            i += 2
+        else:
+            # Assume it's the react build folder if no flag
+            if react_build_folder is None:
+                react_build_folder = Path(sys.argv[i])
+            i += 1
+    
+    if database_file and not database_file.exists():
+        print(f"❌ Database file does not exist: {database_file}")
         sys.exit(1)
     
     # Create the Quart app for APIs and video streaming
-    app = create_video_api_app(videos_folder, react_build_folder)
+    app = create_video_api_app(react_build_folder, database_file)
     
     # Create Hypercorn config with static file serving
     enable_http2 = True
@@ -449,7 +472,11 @@ async def main():
     )
     
     print(f"🚀 Starting Hypercorn Video Server...")
-    print(f"   📁 Videos: {videos_folder.absolute()}")
+    print(f"   📁 Working directory: {Path.cwd().absolute()}")
+    if database_file:
+        print(f"   📊 Database mode: {database_file.absolute()}")
+    else:
+        print(f"   📁 Folder scan mode")
     scheme = "https" if getattr(config, 'certfile', None) else "http"
     print(f"   🌐 Server: {scheme}://localhost:8000")
     print(f"   📺 API: {scheme}://localhost:8000/api/videos")

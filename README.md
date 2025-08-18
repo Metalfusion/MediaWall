@@ -1,6 +1,7 @@
 # MediaWall - Interactive Media Display Application
 
-A full-screen media wall application that displays an auto-scrolling grid of videos and images with background music support. Perfect for creating dynamic visual displays, digital art installations, or simply enjoying your video and image collections in a unique way.
+A full-screen media wall web application that displays an auto-scrolling grid of videos and images with background music support.
+The media is loaded and served with metadata from local folders using a simple Python server.
 
 ## ✨ Features
 
@@ -70,7 +71,7 @@ A full-screen media wall application that displays an auto-scrolling grid of vid
 #### Option 1: Development Mode (Hot Reload)
 ```bash
 # Terminal 1: Start the Python backend
-python react_video_server.py ./videos
+python react_video_server.py
 
 # Terminal 2: Start the frontend dev server
 npm run dev
@@ -83,9 +84,19 @@ Then open http://localhost:5173
 npm run build
 
 # Start with Hypercorn (HTTP/2, better performance)
-python hypercorn_video_server.py ./videos
+python hypercorn_video_server.py dist
 ```
 Then open http://localhost:8000
+
+#### Option 3: Database Mode
+For using a single JSON database instead of folder scanning:
+```bash
+# Development mode with database
+python react_video_server.py --database ./media_database.json
+
+# Production mode with database
+python hypercorn_video_server.py dist --database ./media_database.json
+```
 
 ## 📁 Directory Structure
 
@@ -102,13 +113,79 @@ MediaWall/
 
 ## 🎯 Content Management
 
-### Getting Videos and Images
-
-The application displays videos and images that require metadata JSON files for proper functionality. Here are the recommended approaches:
-
 ### Adding Music (Simple)
 
 For background music, simply copy your music files (MP3, FLAC, etc.) into the `music/` directory. No additional setup or metadata generation is required - the music player will automatically discover and play them.
+
+### Getting Videos and Images
+
+MediaWall supports two modes for managing video and image content:
+
+#### Mode 1: Folder Scanning
+The application displays videos and images that require metadata JSON files for proper functionality. This is the default mode.
+
+#### Mode 2: Database Mode
+Load all media metadata from a single JSON database file instead of scanning folders for individual metadata files. This mode is useful for:
+- Managing large collections efficiently
+- Centralizing metadata management
+- Working with media files stored in various locations
+- Easier backup and synchronization of metadata
+
+### Database Mode Setup
+
+When using database mode, create a JSON file containing an array of media objects. Each object should include:
+
+- `filename`: The media file name
+- `path`: Path to the file relative to the database JSON location (or absolute path)
+- `mediaType`: Either "video" or "image" 
+- `title`: Display title for the media
+- `dimensions`: Object with `width` and `height` properties
+- Additional metadata fields (score, category, URLs, etc.)
+
+**Example database file:**
+```json
+[
+  {
+    "filename": "my_video.mp4",
+    "path": "videos/my_video.mp4",
+    "mediaType": "video",
+    "title": "My Amazing Video",
+    "dimensions": {
+      "width": "1920",
+      "height": "1080"
+    },
+    "category": "entertainment",
+    "score": "95",
+    "duration": "120.5"
+  },
+  {
+    "filename": "my_image.jpg", 
+    "path": "images/my_image.jpg",
+    "mediaType": "image",
+    "title": "Beautiful Landscape",
+    "dimensions": {
+      "width": "2048",
+      "height": "1536"
+    },
+    "category": "nature",
+    "score": "88"
+  }
+]
+```
+
+See `example_media_database.json` for a complete example based on the existing metadata format.
+
+**Converting existing metadata files:**
+If you already have individual metadata JSON files, you can convert them to database format using the included converter:
+```bash
+# Convert from default folders (videos and images)
+python convert_to_database.py -o media_database.json
+
+# Convert from specific folders
+python convert_to_database.py videos images music -o media_database.json
+```
+
+### Traditional Folder Mode Setup
 
 #### Method 1: Manual Addition (Existing Local Files)
 If you already have video and image files you want to display:
@@ -157,13 +234,34 @@ This approach gives you more control over the indexing process and metadata gene
 - **Images**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.avif`
 - **Audio**: `.mp3`, `.wav`, `.flac`, `.aac`, `.ogg`, `.m4a`, `.wma`
 
-## 🛠️ Configuration
+## Configuration
 
 ### Backend Configuration
 The Python server can be configured via command-line arguments:
+
+**Basic usage:**
 ```bash
-python react_video_server.py ./videos --port 8000 --host 0.0.0.0
+python react_video_server.py
 ```
+
+**With React build folder:**
+```bash
+python react_video_server.py dist
+```
+
+**Database mode:**
+```bash
+python react_video_server.py --database ./media_database.json
+```
+
+**Command-line options:**
+- `react_build_folder`: Path to React build folder (optional)
+- `--database FILE`: Path to media database JSON file (enables database mode)
+
+**Default folders (created automatically if they don't exist):**
+- `videos/` - Video files
+- `images/` - Image files  
+- `music/` - Music files
 
 ### Frontend Settings
 Use the settings panel in the web interface to customize:
@@ -172,7 +270,7 @@ Use the settings panel in the web interface to customize:
 - Grid layout and sizing
 - Music playback settings
 
-## 🔧 Development
+## Development
 
 ### Frontend Development
 ```bash
@@ -201,17 +299,43 @@ The backend uses Python with aiohttp for high-performance async serving:
 - `GET /stream/music/<filename>` - Stream music files
 
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
 **Videos not playing**: Ensure your browser supports the video formats. MP4 with H.264 encoding works best.
 
-**CORS errors in development**: Make sure both the Python backend and npm dev server are running.
-
 **Videos/images not showing**: Ensure you've run the indexing script to generate metadata JSON files for your video and image files.
 
 **Music not playing**: Simply copy music files directly to the `music/` directory - no indexing required.
+
+**Database mode not loading media**: Ensure file paths in the database JSON are correct relative to the database file location, and that the media files exist.
+
+## Database Mode
+
+### Creating a Database
+
+Create a JSON file with an array of media objects:
+```bash
+# View help for database mode
+python react_video_server.py --help
+
+# Convert existing metadata files to database format
+python convert_to_database.py -o my_database.json
+
+# Start server in database mode
+python react_video_server.py --database my_database.json
+```
+
+### Database Schema
+
+Each media object should include:
+- `filename`: Media file name
+- `path`: Relative or absolute path to file
+- `mediaType`: "video" or "image"
+- `title`: Display title
+- `dimensions`: Object with width/height
+- Additional metadata fields as needed
 
 ---
 

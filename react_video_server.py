@@ -43,10 +43,18 @@ AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma'}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'}
 
 class IntegratedVideoServer:
-    def __init__(self, videos_folder: Path, react_build_folder: Optional[Path] = None):
-        # Core folders
-        self.videos_folder = Path(videos_folder)
+    def __init__(self, react_build_folder: Optional[Path] = None, database_file: Optional[Path] = None):
+        # Use default folders in current directory
+        self.videos_folder = Path('videos')
+        self.images_folder = Path('images')
+        self.music_folder = Path('music')
         self.react_build_folder = Path(react_build_folder) if react_build_folder else None
+        
+        # Database mode configuration
+        self.database_file = Path(database_file) if database_file else None
+        self.database_mode = self.database_file is not None
+        self.database_data: List[Dict[str, Any]] = []
+        self.database_base_path: Optional[Path] = None
 
         # Caches and TTLs
         self.video_cache: Dict[str, Any] = {}
@@ -61,47 +69,116 @@ class IntegratedVideoServer:
         self.image_indexer = None
         self.video_indexer = None
 
-        # Look for music folder
-        self.music_folder = None
-        music_candidates = [
-            self.videos_folder / 'music',
-            self.videos_folder.parent / 'music',
-            Path('music')
-        ]
+        # Initialize database mode if specified
+        if self.database_mode:
+            self._load_database()
+            print(f"📊 Database mode enabled: {self.database_file}")
+            print(f"📊 Database base path: {self.database_base_path}")
+            print(f"📊 Loaded {len(self.database_data)} media entries from database")
+        else:
+            print("📁 Folder scan mode enabled")
 
-        for candidate in music_candidates:
-            if candidate.exists() and candidate.is_dir():
-                self.music_folder = candidate
-                print(f"🎵 Found music folder: {self.music_folder}")
-                break
+        # Check if folders exist (only in folder mode)
+        if not self.database_mode:
+            # Check videos folder
+            if not self.videos_folder.exists():
+                print(f"📁 Videos folder not found: {self.videos_folder} (will be created if needed)")
+            else:
+                print(f"📁 Videos folder: {self.videos_folder}")
 
-        if not self.music_folder:
-            print("🎵 No music folder found")
+            # Check images folder  
+            if not self.images_folder.exists():
+                print(f"📁 Images folder not found: {self.images_folder} (will be created if needed)")
+            else:
+                print(f"🖼️ Images folder: {self.images_folder}")
 
-        # Look for images folder
-        self.images_folder = None
-        image_candidates = [
-            self.videos_folder / 'images',
-            self.videos_folder.parent / 'images',
-            Path('images')
-        ]
-
-        for candidate in image_candidates:
-            if candidate.exists() and candidate.is_dir():
-                self.images_folder = candidate
-                print(f"🖼️ Found images folder: {self.images_folder}")
-                break
-
-        if not self.images_folder:
-            print("🖼️ No images folder found")
+            # Check music folder
+            if not self.music_folder.exists():
+                print(f"� Music folder not found: {self.music_folder} (will be created if needed)")
+            else:
+                print(f"🎵 Music folder: {self.music_folder}")
 
         # Tags cache
         self.tags_cache = None
         self.tags_cache_timestamp = None
 
-        # Index caches (persistent on disk) delegated to module
-        self.image_indexer = ImageMetadataIndex(self.images_folder) if self.images_folder else None
-        self.video_indexer = VideoMetadataIndex(self.videos_folder) if self.videos_folder else None
+        # Index caches (persistent on disk) delegated to module (only in folder mode)
+        if not self.database_mode:
+            self.image_indexer = ImageMetadataIndex(self.images_folder) if self.images_folder else None
+            self.video_indexer = VideoMetadataIndex(self.videos_folder) if self.videos_folder else None
+
+    def _load_database(self) -> None:
+        """Load media database from JSON file"""
+        if not self.database_file or not self.database_file.exists():
+            print(f"❌ Database file not found: {self.database_file}")
+            self.database_data = []
+            return
+        
+        try:
+            with open(self.database_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if not isinstance(data, list):
+                print(f"❌ Database file must contain a JSON array, got {type(data)}")
+                self.database_data = []
+                return
+                
+            self.database_data = data
+            self.database_base_path = self.database_file.parent
+            
+            # Validate database entries
+            valid_entries = []
+            for i, entry in enumerate(self.database_data):
+                if not isinstance(entry, dict):
+                    print(f"⚠️ Skipping invalid entry {i}: not a dictionary")
+                    continue
+                
+                # Check if it has required fields
+                if 'filename' not in entry and 'path' not in entry:
+                    print(f"⚠️ Skipping entry {i}: missing 'filename' or 'path' field")
+                    continue
+                
+                # Ensure we have a filename
+                if 'filename' not in entry and 'path' in entry:
+                    entry['filename'] = Path(entry['path']).name
+                
+                # Determine media type from filename or explicit field
+                filename = entry['filename']
+                file_ext = Path(filename).suffix.lower()
+                
+                if 'mediaType' in entry:
+                    media_type = entry['mediaType'].lower()
+                elif file_ext in VIDEO_EXTENSIONS:
+                    media_type = 'video'
+                elif file_ext in IMAGE_EXTENSIONS:
+                    media_type = 'image'
+                else:
+                    print(f"⚠️ Skipping entry {i}: unknown media type for {filename}")
+                    continue
+                
+                entry['mediaType'] = media_type
+                valid_entries.append(entry)
+            
+            self.database_data = valid_entries
+            print(f"✅ Successfully loaded {len(valid_entries)} valid entries from database")
+            
+        except Exception as e:
+            print(f"❌ Failed to load database file {self.database_file}: {e}")
+            self.database_data = []
+
+    def _get_file_path_from_database_entry(self, entry: Dict[str, Any]) -> Path:
+        """Get the absolute file path from a database entry"""
+        if 'path' in entry:
+            rel_path = Path(entry['path'])
+        else:
+            rel_path = Path(entry['filename'])
+        
+        if rel_path.is_absolute():
+            return rel_path
+        else:
+            if self.database_base_path is None:
+                raise ValueError("Database base path is None, cannot resolve relative path")
+            return self.database_base_path / rel_path
 
     # ---- API-level persistent cache helpers (store final JSON payload) ----
     def _api_cache_path(self, kind: str) -> Path:
@@ -244,10 +321,122 @@ class IntegratedVideoServer:
             self.video_cache):
             return self.video_cache
         
+        if self.database_mode:
+            return self._scan_videos_from_database(current_time)
+        else:
+            return self._scan_videos_from_folder(current_time)
+
+    def _scan_videos_from_database(self, current_time: datetime) -> Dict[str, Any]:
+        """Scan videos from database entries"""
+        print(f"📺 Scanning videos from database: {self.database_file}")
+        
+        if not self.database_data:
+            return {"error": f"No database data loaded from: {self.database_file}"}
+        
+        videos = []
+        for entry in self.database_data:
+            if entry.get('mediaType') != 'video':
+                continue
+            
+            try:
+                file_path = self._get_file_path_from_database_entry(entry)
+                
+                # Check if file exists
+                if not file_path.exists() or not file_path.is_file():
+                    print(f"⚠️ File not found: {file_path}")
+                    continue
+                
+                stat = file_path.stat()
+                
+                # Extract metadata from database entry
+                title = entry.get('title', self.format_display_title(entry['filename']))
+                
+                # Get dimensions from database or extract from metadata
+                dimensions = {'width': 1920, 'height': 1080}  # default
+                if 'dimensions' in entry:
+                    dims = entry['dimensions']
+                    if isinstance(dims, dict):
+                        try:
+                            if 'width' in dims and 'height' in dims:
+                                dimensions = {
+                                    'width': int(dims['width']),
+                                    'height': int(dims['height'])
+                                }
+                        except (ValueError, TypeError):
+                            pass
+                
+                video_info = {
+                    "type": "video",
+                    "tags": [],
+                    "filename": entry['filename'],
+                    "size": stat.st_size,
+                    "title": title,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "width": dimensions['width'],
+                    "height": dimensions['height'],
+                    "aspect_ratio": round(dimensions['width'] / dimensions['height'], 3)
+                }
+                
+                # Add database metadata
+                db_metadata = {k: v for k, v in entry.items() 
+                             if k not in ['filename', 'path', 'mediaType', 'title', 'dimensions']}
+                if db_metadata:
+                    video_info['metadata'] = db_metadata
+
+                # Compute duration if available in database
+                dur = None
+                if 'duration' in entry:
+                    dur = parse_duration_seconds(entry['duration'])
+                # Try to probe if no duration in database
+                if dur is None:
+                    dur = probe_duration_seconds(file_path)
+                if dur is not None:
+                    video_info['duration_seconds'] = round(float(dur), 3)
+
+                # Generate tags
+                meta_for_tags = {'metadata': db_metadata}
+                if dur is not None:
+                    meta_for_tags['metadata']['duration'] = float(dur)
+                video_info['tags'] = gen_video_tags(file_path, dimensions, meta_for_tags, do_probe=True)
+                
+                videos.append(video_info)
+                
+            except Exception as e:
+                print(f"⚠️ Error processing database entry {entry.get('filename', 'unknown')}: {e}")
+                continue
+        
+        # Sort videos by name for consistent ordering
+        videos.sort(key=lambda v: v["filename"])
+        
+        self.video_cache = {
+            "folder": "/videos/",
+            "generated": current_time.isoformat(),
+            "scan_path": f"database:{self.database_file}",
+            "total_size": sum(v["size"] for v in videos),
+            "total_videos": len(videos),
+            "videos": videos
+        }
+        
+        self.cache_timestamp = current_time
+        self._save_api_cache('videos', self.video_cache)
+        
+        print(f"✅ Found {len(videos)} videos from database")
+        return self.video_cache
+
+    def _scan_videos_from_folder(self, current_time: datetime) -> Dict[str, Any]:
+        """Scan videos from folder structure (original implementation)"""
         print(f"📺 Scanning videos in: {self.videos_folder}")
         
         if not self.videos_folder.exists():
-            return {"error": f"Videos folder not found: {self.videos_folder}"}
+            print(f"📺 Videos folder doesn't exist yet: {self.videos_folder}")
+            return {
+                "folder": "/videos/",
+                "generated": current_time.isoformat(),
+                "scan_path": str(self.videos_folder),
+                "total_size": 0,
+                "total_videos": 0,
+                "videos": []
+            }
         
         # Ensure video index is up to date to minimize disk reads
         if self.video_indexer:
@@ -408,8 +597,104 @@ class IntegratedVideoServer:
             self.image_cache):
             return self.image_cache
 
-        if not self.images_folder or not self.images_folder.exists():
-            self.image_cache = {"folder": "/images/", "images": []}
+        if self.database_mode:
+            return self._scan_images_from_database(current_time)
+        else:
+            return self._scan_images_from_folder(current_time)
+
+    def _scan_images_from_database(self, current_time: datetime) -> Dict[str, Any]:
+        """Scan images from database entries"""
+        print(f"🖼️ Scanning images from database: {self.database_file}")
+        
+        if not self.database_data:
+            return {"folder": "/images/", "images": []}
+        
+        images: List[Dict[str, Any]] = []
+        for entry in self.database_data:
+            if entry.get('mediaType') != 'image':
+                continue
+            
+            try:
+                file_path = self._get_file_path_from_database_entry(entry)
+                
+                # Check if file exists
+                if not file_path.exists() or not file_path.is_file():
+                    print(f"⚠️ Image file not found: {file_path}")
+                    continue
+                
+                stat = file_path.stat()
+                
+                # Extract metadata from database entry
+                title = entry.get('title', self.format_display_title(entry['filename']))
+                
+                # Get dimensions from database
+                dims = {'width': 1920, 'height': 1080}  # default
+                if 'dimensions' in entry:
+                    db_dims = entry['dimensions']
+                    if isinstance(db_dims, dict):
+                        try:
+                            if 'width' in db_dims and 'height' in db_dims:
+                                dims = {
+                                    'width': int(db_dims['width']),
+                                    'height': int(db_dims['height'])
+                                }
+                        except (ValueError, TypeError):
+                            pass
+                
+                item = {
+                    "type": "image",
+                    "tags": [],
+                    "filename": entry['filename'],
+                    "size": stat.st_size,
+                    "title": title,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "width": dims['width'],
+                    "height": dims['height'],
+                    "aspect_ratio": round(dims['width'] / dims['height'], 3)
+                }
+                
+                # Add database metadata
+                db_metadata = {k: v for k, v in entry.items() 
+                             if k not in ['filename', 'path', 'mediaType', 'title', 'dimensions']}
+                if db_metadata:
+                    item['metadata'] = db_metadata
+
+                # Generate tags
+                meta_for_tags = {'metadata': db_metadata}
+                item['tags'] = gen_image_tags(file_path, dims, meta_for_tags)
+                
+                images.append(item)
+                
+            except Exception as e:
+                print(f"⚠️ Error processing database entry {entry.get('filename', 'unknown')}: {e}")
+                continue
+
+        images.sort(key=lambda i: i["filename"])
+        self.image_cache = {
+            "folder": "/images/",
+            "generated": current_time.isoformat(),
+            "scan_path": f"database:{self.database_file}",
+            "total_size": sum(i["size"] for i in images),
+            "total_images": len(images),
+            "images": images
+        }
+        self.image_cache_timestamp = current_time
+        self._save_api_cache('images', self.image_cache)
+        print(f"✅ Found {len(images)} images from database")
+        return self.image_cache
+
+    def _scan_images_from_folder(self, current_time: datetime) -> Dict[str, Any]:
+        """Scan images from folder structure (original implementation)"""
+        if not self.images_folder.exists():
+            print(f"🖼️ Images folder doesn't exist yet: {self.images_folder}")
+            self.image_cache = {
+                "folder": "/images/",
+                "generated": current_time.isoformat(),
+                "scan_path": str(self.images_folder),
+                "total_size": 0,
+                "total_images": 0,
+                "images": []
+            }
             return self.image_cache
 
         print(f"🖼️ Scanning images in: {self.images_folder}")
@@ -470,8 +755,14 @@ class IntegratedVideoServer:
             self.music_cache):
             return self.music_cache
         
-        if not self.music_folder or not self.music_folder.exists():
-            self.music_cache = {"folder": "/music/", "tracks": []}
+        if not self.music_folder.exists():
+            print(f"🎵 Music folder doesn't exist yet: {self.music_folder}")
+            self.music_cache = {
+                "folder": "/music/",
+                "generated": current_time.isoformat(),
+                "scan_path": str(self.music_folder),
+                "tracks": []
+            }
             return self.music_cache
         
         print(f"🎵 Scanning music in: {self.music_folder}")
@@ -503,6 +794,29 @@ class IntegratedVideoServer:
         self.music_cache_timestamp = current_time
         print(f"✅ Found {len(tracks)} music tracks")
         return self.music_cache
+
+    def get_file_path_for_serving(self, filename: str, media_type: str) -> Optional[Path]:
+        """Get the actual file path for serving a file, handling both database and folder modes"""
+        if self.database_mode:
+            # Find the file in database entries
+            for entry in self.database_data:
+                if (entry.get('filename') == filename and 
+                    entry.get('mediaType') == media_type):
+                    try:
+                        return self._get_file_path_from_database_entry(entry)
+                    except Exception as e:
+                        print(f"⚠️ Error resolving path for {filename}: {e}")
+                        return None
+            return None
+        else:
+            # Traditional folder-based serving
+            if media_type == 'video':
+                return self.videos_folder / filename
+            elif media_type == 'image':
+                return self.images_folder / filename
+            elif media_type == 'music':
+                return self.music_folder / filename
+            return None
 
     def _aggregate_tags(self) -> Dict[str, Any]:
         now = datetime.now()
@@ -568,9 +882,9 @@ async def handle_video_file(request: Request) -> Union[Response, FileResponse]:
     """Handle video file serving with range support"""
     filename = request.match_info['filename']
     server = request.app['server']
-    file_path = server.videos_folder / filename
     
-    if not file_path.exists() or not file_path.is_file():
+    file_path = server.get_file_path_for_serving(filename, 'video')
+    if not file_path or not file_path.exists() or not file_path.is_file():
         return web.Response(status=404, text="Video not found")
     
     ct = mimetypes.guess_type(str(file_path))[0] or 'video/mp4'
@@ -621,11 +935,11 @@ async def handle_image_file(request: Request) -> Union[Response, FileResponse]:
     """Handle image file serving"""
     filename = request.match_info['filename']
     server = request.app['server']
-    if not server.images_folder:
-        return web.Response(status=404, text="Images folder not found")
-    file_path = server.images_folder / filename
-    if not file_path.exists() or not file_path.is_file():
+    
+    file_path = server.get_file_path_for_serving(filename, 'image')
+    if not file_path or not file_path.exists() or not file_path.is_file():
         return web.Response(status=404, text="Image not found")
+    
     return FileResponse(
         path=file_path,
         headers={'Access-Control-Allow-Origin': '*'}
@@ -672,12 +986,12 @@ async def handle_react_app(request: Request) -> Union[Response, FileResponse]:
     
     return FileResponse(path=file_path)
 
-def create_app(videos_folder: Path, react_build_folder: Optional[Path] = None) -> web.Application:
+def create_app(react_build_folder: Optional[Path] = None, database_file: Optional[Path] = None) -> web.Application:
     """Create the aiohttp application"""
     app = web.Application()
     
     # Create server instance
-    server = IntegratedVideoServer(videos_folder, react_build_folder)
+    server = IntegratedVideoServer(react_build_folder, database_file)
     app['server'] = server
     
     # API routes
@@ -699,30 +1013,64 @@ def create_app(videos_folder: Path, react_build_folder: Optional[Path] = None) -
 async def main():
     """Main server function"""
     # Parse command line arguments
-    if len(sys.argv) < 2:
-        print("Usage: python react_video_server.py <videos_folder> [react_build_folder]")
-        print("Example: python react_video_server.py ./videos ./dist")
+    if len(sys.argv) >= 2 and ('--help' in sys.argv or '-h' in sys.argv):
+        print("Usage: python react_video_server.py [react_build_folder] [--database <database_file>]")
+        print("Example: python react_video_server.py")
+        print("Example: python react_video_server.py ./dist")
+        print("Example (database mode): python react_video_server.py --database ./media_database.json")
+        print("Example (with build): python react_video_server.py ./dist --database ./media_database.json")
+        print("")
+        print("Arguments:")
+        print("  react_build_folder  Path to React build folder (optional)")
+        print("  --database FILE     Path to media database JSON file (optional)")
+        print("")
+        print("Default folders:")
+        print("  videos/   - Video files")
+        print("  images/   - Image files") 
+        print("  music/    - Music files")
+        print("")
+        print("Database mode:")
+        print("  When --database is specified, media metadata is loaded from a single JSON file")
+        print("  instead of scanning folder structure for individual metadata files.")
+        print("  The database file should contain an array of media objects with metadata.")
+        sys.exit(0)
+    
+    react_build_folder = None
+    database_file = None
+    
+    # Parse arguments
+    i = 1
+    while i < len(sys.argv):
+        if sys.argv[i] == '--database' and i + 1 < len(sys.argv):
+            database_file = Path(sys.argv[i + 1])
+            i += 2
+        else:
+            # Assume it's the react build folder if no flag
+            if react_build_folder is None:
+                react_build_folder = Path(sys.argv[i])
+            i += 1
+    
+    if database_file and not database_file.exists():
+        print(f"❌ Database file does not exist: {database_file}")
         sys.exit(1)
     
-    videos_folder = Path(sys.argv[1])
-    react_build_folder = Path(sys.argv[2]) if len(sys.argv) > 2 else None
-    
-    if not videos_folder.exists():
-        print(f"❌ Videos folder does not exist: {videos_folder}")
-        sys.exit(1)
-    
-    app = create_app(videos_folder, react_build_folder)
+    app = create_app(react_build_folder, database_file)
     
     # Start server
     host = '0.0.0.0'
     port = 8000
     
     print(f"🚀 Starting Integrated Video Server...")
-    print(f"   📁 Videos: {videos_folder.absolute()}")
+    print(f"   📁 Working directory: {Path.cwd().absolute()}")
+    if database_file:
+        print(f"   📊 Database mode: {database_file.absolute()}")
+    else:
+        print(f"   📁 Folder scan mode")
     if react_build_folder:
         print(f"   ⚛️  React: {react_build_folder.absolute()}")
     print(f"   🌐 Server: http://{host}:{port}")
     print(f"   📺 API: http://{host}:{port}/api/videos")
+    print(f"   📷 Image API: http://{host}:{port}/api/images")
     print(f"   🎵 Music API: http://{host}:{port}/api/music")
     
     # Open browser after a short delay
