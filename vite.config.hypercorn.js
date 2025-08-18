@@ -9,6 +9,7 @@ export default defineConfig({
     // For development: proxy API calls to Hypercorn server
     proxy: {
       '/videos': 'http://localhost:8000',
+      '/images': 'http://localhost:8000',
       '/music': 'http://localhost:8000',
       '/api': 'http://localhost:8000'
     }

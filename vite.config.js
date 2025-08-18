@@ -8,6 +8,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/videos': 'http://localhost:8000',
+      '/images': 'http://localhost:8000',
       '/music': 'http://localhost:8000',
       '/api': 'http://localhost:8000'
     }
