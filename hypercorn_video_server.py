@@ -427,16 +427,20 @@ async def main():
         print("Example (with build): python hypercorn_video_server.py ./dist --database ./media_database.json")
         print("")
         print("Arguments:")
-        print("  react_build_folder  Path to React build folder (optional)")
-        print("  --database FILE     Path to media database JSON file (optional)")
+        print("  react_build_folder  Path to React build folder (optional, defaults to 'dist' if it exists)")
+        print("  --database FILE     Path to media database JSON file (optional, defaults to 'media_database.json' if it exists)")
         print("")
         print("Default folders:")
         print("  videos/   - Video files")
         print("  images/   - Image files")
         print("  music/    - Music files")
         print("")
+        print("Auto-detection:")
+        print("  If 'dist' folder exists, it will be used automatically for React build")
+        print("  If 'media_database.json' exists, database mode will be enabled automatically")
+        print("")
         print("Database mode:")
-        print("  When --database is specified, media metadata is loaded from a single JSON file")
+        print("  When --database is specified or media_database.json exists, media metadata is loaded from a single JSON file")
         print("  instead of scanning folder structure for individual metadata files.")
         print("  The database file should contain an array of media objects with metadata.")
         sys.exit(0)
@@ -455,6 +459,20 @@ async def main():
             if react_build_folder is None:
                 react_build_folder = Path(sys.argv[i])
             i += 1
+    
+    # Auto-detect dist folder if not specified
+    if react_build_folder is None:
+        dist_path = Path("dist")
+        if dist_path.exists() and dist_path.is_dir():
+            react_build_folder = dist_path
+            print(f"📁 Auto-detected React build folder: {react_build_folder}")
+    
+    # Auto-detect database file if not specified
+    if database_file is None:
+        auto_db_path = Path("media_database.json")
+        if auto_db_path.exists():
+            database_file = auto_db_path
+            print(f"📊 Auto-detected database file: {database_file}")
     
     if database_file and not database_file.exists():
         print(f"❌ Database file does not exist: {database_file}")

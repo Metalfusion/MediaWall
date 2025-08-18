@@ -9,7 +9,7 @@
             "request": "launch",
             "name": "Python: Run Hypercorn Video Server",
             "program": "${workspaceFolder}/hypercorn_video_server.py",
-            "args": ["videos", "dist"],
+            "args": [],
             "console": "integratedTerminal",
             "env": {
                 "PYTHONUNBUFFERED": "1"

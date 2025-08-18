@@ -67,6 +67,26 @@ The media is loaded and served with metadata from local folders using a simple P
    mkdir videos images music
    ```
 
+### Smart Auto-Detection
+
+MediaWall features intelligent auto-detection to minimize setup:
+
+**🔍 Automatic React Build Detection:**
+- If a `dist/` folder exists, it will be used automatically for serving the React app
+- No need to specify the build folder path manually
+- Build with `npm run build` and simply run `python react_video_server.py`
+
+**🔍 Automatic Database Detection:**
+- If `media_database.json` exists in the current directory, database mode is enabled automatically
+- No need to specify `--database` flag manually
+- Place your database file as `media_database.json` and run the server normally
+
+**💡 Benefits:**
+- Zero-config startup for most common scenarios
+- Faster development workflow
+- Less chance of command-line errors
+- Manual arguments still override auto-detection when needed
+
 ### Quick Start
 
 #### Option 1: Development Mode (Hot Reload)
@@ -84,7 +104,10 @@ Then open http://localhost:5173
 # Build the frontend
 npm run build
 
-# Start with Hypercorn (HTTP/2, better performance)
+# Start with auto-detection (recommended)
+python hypercorn_video_server.py
+
+# Or explicitly specify build folder
 python hypercorn_video_server.py dist
 ```
 Then open http://localhost:8000
@@ -92,11 +115,17 @@ Then open http://localhost:8000
 #### Option 3: Database Mode
 For using a single JSON database instead of folder scanning:
 ```bash
-# Development mode with database
+# Auto-detection (if media_database.json exists in current directory)
+python react_video_server.py
+
+# Explicitly specify database file
 python react_video_server.py --database ./media_database.json
 
-# Production mode with database
-python hypercorn_video_server.py dist --database ./media_database.json
+# Production mode with auto-detection
+python hypercorn_video_server.py
+
+# Production mode with explicit database
+python hypercorn_video_server.py --database ./media_database.json
 ```
 
 ## 📁 Directory Structure
@@ -241,7 +270,14 @@ This approach gives you more control over the indexing process and metadata gene
 ## Configuration
 
 ### Backend Configuration
-The Python server can be configured via command-line arguments:
+The Python server can be configured via command-line arguments, but features smart auto-detection for common scenarios:
+
+**Auto-detection (simplest):**
+```bash
+# Automatically detects dist folder and media_database.json if they exist
+python react_video_server.py
+python hypercorn_video_server.py
+```
 
 **Basic usage:**
 ```bash
@@ -258,9 +294,14 @@ python react_video_server.py dist
 python react_video_server.py --database ./media_database.json
 ```
 
+**Auto-detection features:**
+- If `dist/` folder exists, it will be used automatically for React build
+- If `media_database.json` exists, database mode will be enabled automatically
+- Manual arguments override auto-detection
+
 **Command-line options:**
-- `react_build_folder`: Path to React build folder (optional)
-- `--database FILE`: Path to media database JSON file (enables database mode)
+- `react_build_folder`: Path to React build folder (optional, defaults to 'dist' if it exists)
+- `--database FILE`: Path to media database JSON file (optional, defaults to 'media_database.json' if it exists)
 
 **Default folders (created automatically if they don't exist):**
 - `videos/` - Video files
@@ -325,9 +366,12 @@ Create a JSON file with an array of media objects:
 python react_video_server.py --help
 
 # Convert existing metadata files to database format
-python convert_to_database.py -o my_database.json
+python convert_to_database.py -o media_database.json
 
-# Start server in database mode
+# Start server (auto-detects media_database.json)
+python react_video_server.py
+
+# Or explicitly specify database
 python react_video_server.py --database my_database.json
 ```
 
